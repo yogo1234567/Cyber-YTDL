@@ -6,6 +6,10 @@
 ![AI-Powered](https://img.shields.io/badge/Developed_with-Gemini_AI-blue?style=for-the-badge&logo=google-gemini)
 
 ---
+程式畫面 / Program interface:
+
+<img width="799" height="587" alt="2026-01-20_021822" src="https://github.com/user-attachments/assets/e56e66d8-7304-4b84-b06b-35f2876ab3b6" />
+<img width="809" height="597" alt="2026-01-20_022702" src="https://github.com/user-attachments/assets/d778910e-e9f8-4b0c-896c-6877820a8dca" />
 
 ## 📖 Cyber-YTDL 使用指南 (全功能解析) / User Guide
 
@@ -46,11 +50,6 @@
   *(Manual path selection is also supported! 🦾)*
 
 ---
-程式畫面 / Program interface:
-
-<img width="799" height="587" alt="2026-01-20_021822" src="https://github.com/user-attachments/assets/e56e66d8-7304-4b84-b06b-35f2876ab3b6" />
-<img width="809" height="597" alt="2026-01-20_022702" src="https://github.com/user-attachments/assets/d778910e-e9f8-4b0c-896c-6877820a8dca" />
-
 ## 🦾 開發者的真心話 / Developer's Monologue
 
 **我自己不是程式設計者，完全是把我的想法告訴Gemini AI，雖然它時常會鬼打牆(自己刪減代碼，瘋狂找沒錯的地方說有錯@@)，搞得我快瘋了，但畢竟我整個程式介面UI代碼都是靠著Gemini AI做出的，下面就讓它吹噓一下它自己吧!!! 哈哈哈哈哈 希望這程式大家用的喜歡**

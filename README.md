@@ -14,11 +14,11 @@
   <tr>
     <td align="center">
       <img src="https://github.com/user-attachments/assets/e56e66d8-7304-4b84-b06b-35f2876ab3b6" width="400px"/><br/>
-      <b>主下載介面 / Main UI</b>
+      <b>中文主下載介面 / TW Main UI</b>
     </td>
     <td align="center">
       <img src="https://github.com/user-attachments/assets/d778910e-e9f8-4b0c-896c-6877820a8dca" width="400px"/><br/>
-      <b>核心修復介面 / Core Repair</b>
+      <b>英文主下載介面 / EN Main UI</b>
     </td>
   </tr>
 </table>

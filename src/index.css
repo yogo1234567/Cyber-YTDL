@@ -1,0 +1,133 @@
+@import "tailwindcss";
+
+/* 1. 賽博發光動畫 */
+@keyframes pulse-cyan {
+  0%, 100% { opacity: 1; box-shadow: 0 0 10px #00F0FF; }
+  50% { opacity: 0.7; box-shadow: 0 0 25px #00F0FF; }
+}
+
+.pulse-cyan {
+  animation: pulse-cyan 2s infinite;
+}
+
+/* [新增] 2026-01-14 賽博流光動畫：用於進度條傳輸感 */
+@keyframes cyber-scan {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.cyber-progress-glow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.4),
+    transparent
+  );
+  animation: cyber-scan 2s infinite linear;
+}
+
+/* 2. 視窗基礎設定：讓背景完全透明 */
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background-color: transparent !important;
+  overflow: hidden;
+  user-select: none;
+  pointer-events: none; 
+}
+
+/* 3. 讓賽博框本身攔截滑鼠 */
+.cyber-frame {
+  pointer-events: auto !important;
+  cursor: grab;
+}
+
+/* 4. 確保框裡面的物件可以點擊 */
+button, select, .status-scrollbar, svg {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+  position: relative;
+  z-index: 100;
+}
+
+/* 特別處理輸入框：允許文字選取 */
+input {
+  pointer-events: auto !important;
+  cursor: text !important;
+  position: relative;
+  z-index: 100;
+  user-select: text !important;
+}
+
+/* 讓狀態欄內的文字也可以被選取，這樣手動複製或全選才有效 */
+.status-scrollbar div {
+  user-select: text !important;
+}
+
+button:active {
+  cursor: grabbing;
+}
+
+/* 5. 全域智慧右鍵選單樣式 */
+.custom-context-menu {
+  position: fixed;
+  z-index: 2000; /* 提升層級，確保蓋過所有元件 */
+  min-width: 150px;
+  border: 1px solid;
+  border-radius: 8px;
+  padding: 6px 0;
+  font-family: monospace;
+  font-size: 13px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+  backdrop-filter: blur(8px); /* 賽博感毛玻璃 */
+}
+
+.custom-context-menu button {
+  width: 100%;
+  text-align: left;
+  padding: 8px 16px;
+  display: block;
+  background: transparent;
+  border: none;
+  cursor: pointer !important;
+  transition: all 0.2s ease;
+}
+
+/* 滑鼠滑過按鈕效果：背景變亮且文字微向右移 */
+.custom-context-menu button:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+  padding-left: 20px;
+}
+
+/* 刪除按鈕特別強調顏色 */
+.custom-context-menu .delete-action {
+  color: #ff4d4d !important;
+}
+.custom-context-menu .delete-action:hover {
+  background-color: rgba(255, 77, 77, 0.2);
+}
+
+/* 6. 狀態欄捲動軸美化 (會隨主題變色) */
+.status-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.status-scrollbar::-webkit-scrollbar-thumb {
+  background-color: currentColor; 
+  border-radius: 10px;
+}
+
+.status-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.status-scrollbar {
+  scroll-behavior: smooth;
+}

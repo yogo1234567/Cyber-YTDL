@@ -13,11 +13,11 @@
 <table align="center">
   <tr>
     <td align="center">
-      <img src="https://github.com/user-attachments/assets/e56e66d8-7304-4b84-b06b-35f2876ab3b6" width="400px"/><br/>
+      <img src="https://github.com/user-attachments/assets/e56e66d8-7304-4b84-b06b-35f2876ab3b6" width="380px"/><br/>
       <b>中文主下載介面
     </td>
     <td align="center">
-      <img src="https://github.com/user-attachments/assets/d778910e-e9f8-4b0c-896c-6877820a8dca" width="400px"/><br/>
+      <img src="https://github.com/user-attachments/assets/d778910e-e9f8-4b0c-896c-6877820a8dca" width="380px"/><br/>
       <b>English main UI
     </td>
   </tr>
@@ -26,11 +26,11 @@
 <table align="center">
   <tr>
     <td align="center">
-      <img src="https://github.com/user-attachments/assets/6ca44d20-f7de-419d-bcd2-efa2a0f02403" width="400px"/><br/>
+      <img src="https://github.com/user-attachments/assets/6ca44d20-f7de-419d-bcd2-efa2a0f02403" width="380px"/><br/>
       <b>缺失核心下載畫面</b>
     </td>
     <td align="center">
-      <img src="https://github.com/user-attachments/assets/254dc8be-fd2d-4f3d-84cf-07cb12c1faba" width="400px"/><br/>
+      <img src="https://github.com/user-attachments/assets/254dc8be-fd2d-4f3d-84cf-07cb12c1faba" width="380px"/><br/>
       <b>The core download interface is missing.</b>
     </td>
   </tr>

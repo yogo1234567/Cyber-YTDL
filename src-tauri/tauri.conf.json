@@ -40,11 +40,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "externalBin": [
-      "binaries/yt-dlp",
-      "binaries/ffmpeg",
-      "binaries/deno"
-    ],
+    "externalBin": [],
     "windows": {
       "nsis": {
         "languages": [

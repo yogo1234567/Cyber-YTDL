@@ -23,7 +23,7 @@
   </tr>
 </table>
 
-<img width="564" height="564" alt="IMG_20260120_023846" src="https://github.com/user-attachments/assets/9e45ed0c-198e-449b-aacd-08afa4e039d0" />
+<img width="1564" height="1564" alt="IMG_20260120_023846" src="https://github.com/user-attachments/assets/9e45ed0c-198e-449b-aacd-08afa4e039d0" />
 
 ## 📖 Cyber-YTDL 使用指南 (全功能解析) / User Guide
 

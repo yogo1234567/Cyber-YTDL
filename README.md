@@ -36,6 +36,25 @@
   </tr>
 </table>
 
+<table align="center">
+  <tr>
+    <td align="center">
+      <img src="https://github.com/user-attachments/assets/692b13d9-f060-44a1-9d60-3c7ba812c62b" width="380px"/><br/>
+      <b>功能 / Feature </b>
+    </td>
+    <td align="center">
+      <img src="https://github.com/user-attachments/assets/298c06b7-fef8-49ac-a5a2-c1305a4e0847" width="380px"/><br/>
+      <b>功能 / Feature </b>
+    </td>
+  </tr>
+</table>
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/b913b204-02c6-4b2e-9090-ed854d5317a9" width="600" alt="Main Demo">
+  <br>
+  <b>監控展示 / Monitor Demo</b>
+</p>
+
 <p align="center">
   <img src="https://github.com/user-attachments/assets/9e45ed0c-198e-449b-aacd-08afa4e039d0" width="600" alt="Cyber-YTDL Preview">
   <br>

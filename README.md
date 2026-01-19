@@ -10,8 +10,19 @@
 ---
 程式畫面 / Program interface:
 
-<img width="799" height="587" alt="2026-01-20_021822" src="https://github.com/user-attachments/assets/e56e66d8-7304-4b84-b06b-35f2876ab3b6" />
-<img width="809" height="597" alt="2026-01-20_022702" src="https://github.com/user-attachments/assets/d778910e-e9f8-4b0c-896c-6877820a8dca" />
+<table align="center">
+  <tr>
+    <td align="center">
+      <img src="https://github.com/user-attachments/assets/e56e66d8-7304-4b84-b06b-35f2876ab3b6" width="400px"/><br/>
+      <b>主下載介面 / Main UI</b>
+    </td>
+    <td align="center">
+      <img src="https://github.com/user-attachments/assets/d778910e-e9f8-4b0c-896c-6877820a8dca" width="400px"/><br/>
+      <b>核心修復介面 / Core Repair</b>
+    </td>
+  </tr>
+</table>
+
 <img width="1564" height="1564" alt="IMG_20260120_023846" src="https://github.com/user-attachments/assets/9e45ed0c-198e-449b-aacd-08afa4e039d0" />
 
 ## 📖 Cyber-YTDL 使用指南 (全功能解析) / User Guide

@@ -10,8 +10,7 @@
 
 <img width="799" height="587" alt="2026-01-20_021822" src="https://github.com/user-attachments/assets/e56e66d8-7304-4b84-b06b-35f2876ab3b6" />
 <img width="809" height="597" alt="2026-01-20_022702" src="https://github.com/user-attachments/assets/d778910e-e9f8-4b0c-896c-6877820a8dca" />
-![IMG_20260120_023846](https://github.com/user-attachments/assets/194704ae-f6ce-4df2-8654-366c3f34717a)
-
+<img width="1564" height="1564" alt="IMG_20260120_023846" src="https://github.com/user-attachments/assets/9e45ed0c-198e-449b-aacd-08afa4e039d0" />
 
 ## 📖 Cyber-YTDL 使用指南 (全功能解析) / User Guide
 

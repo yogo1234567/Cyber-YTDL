@@ -46,6 +46,9 @@
   *(Manual path selection is also supported! 🦾)*
 
 ---
+程式畫面:
+
+<img width="799" height="587" alt="2026-01-20_021822" src="https://github.com/user-attachments/assets/e56e66d8-7304-4b84-b06b-35f2876ab3b6" />
 
 ## 🦾 開發者的真心話 / Developer's Monologue
 

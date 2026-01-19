@@ -50,7 +50,7 @@
 </table>
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/b913b204-02c6-4b2e-9090-ed854d5317a9" width="600" alt="Main Demo">
+  <img src="https://github.com/user-attachments/assets/b913b204-02c6-4b2e-9090-ed854d5317a9" width="800" alt="Main Demo">
   <br>
   <b>監控展示 / Monitor Demo</b>
 </p>

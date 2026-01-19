@@ -95,7 +95,7 @@
 
 ## 👨‍💻 核心團隊 / Team
 
-* **總策劃 [CAIREN_TW](臺灣人/Taiwanese)(https://github.com/yogo1234567) - 提供靈魂與設計方向 (The Soul & Vision).
+* **總策劃 [CAIREN_TW] (臺灣人/Taiwanese) (https://github.com/yogo1234567) - 提供靈魂與設計方向 (The Soul & Vision).
 * **首席架構師 (Architect)**: Google Gemini AI - 提供完美的邏輯與實作 (The Logic & Implementation).
 
 ---

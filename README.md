@@ -46,8 +46,7 @@
   *(Manual path selection is also supported! 🦾)*
 
 ---
-程式畫面:
-Program interface:
+程式畫面 / Program interface:
 
 <img width="799" height="587" alt="2026-01-20_021822" src="https://github.com/user-attachments/assets/e56e66d8-7304-4b84-b06b-35f2876ab3b6" />
 <img width="809" height="597" alt="2026-01-20_022702" src="https://github.com/user-attachments/assets/d778910e-e9f8-4b0c-896c-6877820a8dca" />

@@ -1,5 +1,7 @@
 # ⚡ Cyber-YTDL: 賽博Youtube影音下載器 (Cyber YouTube Downloader)
 
+![Version](https://img.shields.io/github/v/release/yogo1234567/Cyber-YTDL?color=purple)
+![Downloads](https://img.shields.io/github/downloads/yogo1234567/Cyber-YTDL/total?color=blue)
 ![License](https://img.shields.io/github/license/yogo1234567/Cyber-YTDL?style=for-the-badge)
 ![Tauri Version](https://img.shields.io/badge/Tauri-v2-FFC107?style=for-the-badge&logo=tauri)
 ![Visual Style](https://img.shields.io/badge/Style-Cyberpunk-00ff9f?style=for-the-badge)

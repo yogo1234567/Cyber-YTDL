@@ -36,7 +36,11 @@
   </tr>
 </table>
 
-<img width="1564" height="1564" alt="IMG_20260120_023846" src="https://github.com/user-attachments/assets/9e45ed0c-198e-449b-aacd-08afa4e039d0" />
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/9e45ed0c-198e-449b-aacd-08afa4e039d0" width="600" alt="Cyber-YTDL Preview">
+  <br>
+  <em>Cyber-YTDL 介面預覽 / Interface Preview</em>
+</p>
 
 ## 📖 Cyber-YTDL 使用指南 (全功能解析) / User Guide
 

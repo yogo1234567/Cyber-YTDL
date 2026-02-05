@@ -22,14 +22,36 @@
     "core:window:allow-start-dragging",
     "core:window:allow-minimize",
     "core:window:allow-close",
+    "core:window:allow-set-size",
+    "core:window:allow-set-resizable",
+    "core:window:allow-center",
+    "core:window:allow-set-decorations",
+    "core:window:allow-set-shadow",
+    "core:window:allow-set-min-size",
     "clipboard-manager:allow-read-text",
     "clipboard-manager:allow-write-text",
     "clipboard-manager:default",
     "dialog:allow-open",
     "dialog:default",
     "fs:default",
-    "fs:allow-write-text-file",
-    "fs:allow-remove",
+    {
+      "identifier": "fs:allow-write-text-file",
+      "scope": {
+        "allow": [
+          "$HOME/**",
+          "**"
+        ]
+      }
+    },
+    {
+      "identifier": "fs:allow-remove",
+      "scope": {
+        "allow": [
+          "$HOME/**",
+          "**"
+        ]
+      }
+    },
     "fs:allow-exists"
   ]
 }

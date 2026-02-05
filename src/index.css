@@ -38,9 +38,14 @@ html, body, #root {
   width: 100%;
   height: 100%;
   background-color: transparent !important;
-  overflow: hidden;
-  user-select: none;
-  pointer-events: none; 
+  /* 允許滾動但隱藏醜陋的捲軸，維持美感 */
+  overflow: auto;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+/* Chrome, Safari 隱藏捲軸 */
+html::-webkit-scrollbar {
+  display: none;
 }
 
 /* 3. 讓賽博框本身攔截滑鼠 */
@@ -84,7 +89,7 @@ button:active {
   border-radius: 8px;
   padding: 6px 0;
   font-family: monospace;
-  font-size: 13px;
+  font-size: inherit;
   box-shadow: 0 10px 30px rgba(0,0,0,0.6);
   backdrop-filter: blur(8px); /* 賽博感毛玻璃 */
 }

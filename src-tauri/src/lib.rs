@@ -1,21 +1,27 @@
 use serde::{Deserialize, Serialize};
-use std::io::{BufRead, BufReader, Write, Read}; // [修正] 加入 Read 用於讀取錯誤訊息
-use std::process::{Command, Stdio};
+use std::io::{BufRead, BufReader, Write}; 
+use std::process::{Command, Stdio, Child}; 
 use tauri::Emitter; 
 use std::path::{Path, PathBuf};
 use regex::Regex;
-use futures_util::StreamExt; // 用於串流下載
+use futures_util::StreamExt; 
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering}; // [2026-01-26 新增] 用於中止訊號
 use tokio::sync::Mutex;
-use tauri::Manager; // 用於視窗管理
-use tauri::Listener; // [新增] 修正 error[E0599]，讓 app 支援 listen 方法
+use tauri::Manager; 
+
 
 #[cfg(target_os = "windows")]
+use window_vibrancy;
 use std::os::windows::process::CommandExt;
 
-// [2026-01-17 新增] 全域下載鎖，確保同時間只有一個下載任務執行，防止誤觸導致的邏輯打架
 lazy_static::lazy_static! {
-    static ref DOWNLOAD_LOCK: Arc<Mutex<bool>> = Arc::new(Mutex::new(false));
+    // [2026-01-26 新增] 中止訊號開關
+    static ref ABORT_SIGNAL: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
+    // 全域子進程鎖，用於中止任務
+    static ref CHILD_PROCESS: Arc<Mutex<Option<Child>>> = Arc::new(Mutex::new(None));
+    // 紀錄當前下載路徑，用於中止時清理殘餘檔案
+    static ref CURRENT_DOWNLOAD_PATH: Arc<Mutex<Option<PathBuf>>> = Arc::new(Mutex::new(None));
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -57,7 +63,7 @@ fn get_unique_path(base_path: &Path, title: &str, quality: &str, ext: &str) -> P
             format!("{}_{}.{}", safe_title, quality, ext)
         } else {
             format!("{}_{}_{}.{}", safe_title, quality, counter, ext)
-        };
+        } ;
         let full_path = base_path.join(filename);
         if !full_path.exists() {
             return full_path;
@@ -66,7 +72,6 @@ fn get_unique_path(base_path: &Path, title: &str, quality: &str, ext: &str) -> P
     }
 }
 
-// 內部輔助函數：執行實際的帶網速下載
 async fn perform_download(
     window: &tauri::Window, 
     url: &str, 
@@ -89,7 +94,7 @@ async fn perform_download(
         downloaded += chunk.len() as u64;
 
         let elapsed = start_time.elapsed().as_secs_f64();
-        if elapsed > 0.5 { // 每 0.5 秒更新一次數據
+        if elapsed > 0.5 {
             let speed_bps = downloaded as f64 / elapsed;
             let progress_ratio = if total_size > 0 { downloaded as f64 / total_size as f64 } else { 0.0 };
             let current_progress = base_prog + (progress_ratio * (max_prog - base_prog));
@@ -107,7 +112,6 @@ async fn perform_download(
                 "--:--".into()
             };
 
-            // [2026-01-19 修正] 使用 app_handle().emit 確保所有視窗收到進度
             let _ = window.app_handle().emit("download-progress", DownloadPayload {
                 progress: current_progress,
                 speed: speed_text,
@@ -118,12 +122,10 @@ async fn perform_download(
     Ok(())
 }
 
-// [2026-01-17 修正] 強化版強制退出：確保殺掉所有可能殘留的 yt-dlp 子進程，避免背景佔用
 #[tauri::command]
 fn exit_app() {
     #[cfg(target_os = "windows")]
     {
-        // 暴力清理所有由本程式啟動可能殘留的下載進程
         let _ = Command::new("taskkill")
             .args(["/F", "/IM", "yt-dlp.exe", "/T"])
             .creation_flags(0x08000000)
@@ -133,13 +135,118 @@ fn exit_app() {
 }
 
 #[tauri::command]
+async fn pause_download(window: tauri::Window, lang: Option<String>) -> Result<String, String> {
+    ABORT_SIGNAL.store(true, Ordering::SeqCst);
+    let mut child_lock = CHILD_PROCESS.lock().await;
+    let lang_str = lang.unwrap_or_else(|| "zh".to_string());
+    let _ = window.app_handle().emit("backend-log", get_msg(&lang_str, "⏸️ 正在暫停下載...", "⏸️ Pausing download..."));
+
+    if let Some(mut child) = child_lock.take() {
+        #[cfg(target_os = "windows")]
+        {
+            let pid = child.id();
+            let _ = Command::new("taskkill")
+                .args(["/F", "/PID", &pid.to_string(), "/T"])
+                .creation_flags(0x08000000)
+                .status();
+        }
+        let _ = child.kill(); 
+        let _ = window.app_handle().emit("backend-log", get_msg(&lang_str, "✅ 已暫停。下次開始將自動續傳。", "✅ Paused."));
+        Ok("PAUSED".into())
+    } else {
+        Ok("NO_RUNNING_TASK".into())
+    }
+}
+
+#[tauri::command]
+async fn resume_download(window: tauri::Window, lang: Option<String>) -> Result<String, String> {
+    ABORT_SIGNAL.store(false, Ordering::SeqCst);
+    let lang_str = lang.unwrap_or_else(|| "zh".to_string());
+    let _ = window.app_handle().emit("backend-log", get_msg(&lang_str, "▶️ 正在準備恢復下載...", "▶️ Preparing to resume download..."));
+    Ok("RESUME_READY".into())
+}
+#[tauri::command]
+async fn adjust_window_size(window: tauri::Window, resizable: bool) -> Result<(), String> {
+    // 保留這個：防止視窗在無邊框模式下縮到太小導致內容被切掉
+    let _ = window.set_min_size(Some(tauri::LogicalSize::new(940.0, 740.0)));
+
+    if resizable {
+        window.set_resizable(true).ok();
+        window.set_decorations(true).ok();
+        window.set_maximizable(true).ok();
+        let _ = window.unmaximize();
+    } else {
+        window.set_decorations(false).ok();
+        window.set_resizable(false).ok();
+        // 重點：這裡不寫 set_size，讓它維持現狀
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn cancel_download(window: tauri::Window, lang: Option<String>) -> Result<String, String> {
+    ABORT_SIGNAL.store(true, Ordering::SeqCst);
+    let mut child_lock = CHILD_PROCESS.lock().await;
+    let mut path_lock = CURRENT_DOWNLOAD_PATH.lock().await;
+
+    let lang_str = lang.unwrap_or_else(|| "zh".to_string());
+    let _ = window.app_handle().emit("backend-log", get_msg(&lang_str, "🛑 正在強制中止任務並清理暫存檔...", "🛑 Forcing cancellation and cleaning up..."));
+
+    if let Some(mut child) = child_lock.take() {
+        #[cfg(target_os = "windows")]
+        {
+            let pid = child.id();
+            let _ = Command::new("taskkill")
+                .args(["/F", "/PID", &pid.to_string(), "/T"])
+                .creation_flags(0x08000000)
+                .status();
+        }
+        let _ = child.kill(); 
+    }
+
+    if let Some(path) = path_lock.take() {
+        tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
+        let parent_dir = path.parent().unwrap_or(Path::new("."));
+        let file_stem = path.file_stem().unwrap_or_default().to_string_lossy();
+
+        if let Ok(entries) = std::fs::read_dir(parent_dir) {
+            for entry in entries.flatten() {
+                let p = entry.path();
+                if let Some(filename) = p.file_name().map(|n| n.to_string_lossy()) {
+                    let is_match = filename.contains(&*file_stem);
+                    let is_temp = filename.ends_with(".part") || 
+                                  filename.ends_with(".ytdl") || 
+                                  filename.contains(".temp") || 
+                                  filename.ends_with(".mp4") || 
+                                  filename.ends_with(".mp3") ||
+                                  filename.ends_with(".m4a") ||
+                                  filename.ends_with(".webm") || 
+                                  filename.ends_with(".f251") || 
+                                  filename.ends_with(".f140") ||
+                                  filename.ends_with(".f299") ||
+                                  filename.ends_with(".f137");
+
+                    if is_match && is_temp {
+                        let _ = std::fs::remove_file(p);
+                    }
+                }
+            }
+        }
+    }
+
+    let _ = window.app_handle().emit("download-progress", DownloadPayload { progress: 0.0, speed: "Stopped".into(), eta: "".into() });
+    let _ = window.app_handle().emit("backend-log", get_msg(&lang_str, "✅ 已中止並清理完畢。", "✅ Cancelled and cleaned up."));
+    Ok("CANCELLED".into())
+}
+
+#[tauri::command]
 async fn open_link(app: tauri::AppHandle, url: String) -> Result<(), String> {
     use tauri_plugin_opener::OpenerExt;
     if let Err(_) = app.opener().open_url(&url, None::<&str>) {
         #[cfg(target_os = "windows")]
         {
             let mut cmd = Command::new("powershell");
-            cmd.args(["-Command", &format!("Start-Process '{}'", url)]);
+            cmd.args(["-Command", "Start-Process", "-FilePath", &url]);
             cmd.creation_flags(0x08000000); 
             cmd.spawn().map_err(|e| format!("無法開啟網頁: {}", e))?;
         }
@@ -147,15 +254,15 @@ async fn open_link(app: tauri::AppHandle, url: String) -> Result<(), String> {
     Ok(())
 }
 
-// [2026-01-18 修改] 偵測邏輯新增 deno.exe，確保環境完整
 #[tauri::command]
 fn check_core_components(window: tauri::Window, lang: String) -> Result<bool, String> {
     let app_dir = get_app_dir();
     let yt_exists = app_dir.join("yt-dlp.exe").exists();
     let ff_exists = app_dir.join("ffmpeg.exe").exists();
-    let de_exists = app_dir.join("deno.exe").exists(); // [2026-01-18 新增]
+    let fp_exists = app_dir.join("ffprobe.exe").exists(); 
+    let de_exists = app_dir.join("deno.exe").exists(); 
     
-    let is_ok = yt_exists && ff_exists && de_exists;
+    let is_ok = yt_exists && ff_exists && fp_exists && de_exists;
     let _ = window.emit("core-status-update", is_ok);
     
     if is_ok {
@@ -164,7 +271,8 @@ fn check_core_components(window: tauri::Window, lang: String) -> Result<bool, St
         let mut missing = Vec::new();
         if !yt_exists { missing.push("yt-dlp.exe"); }
         if !ff_exists { missing.push("ffmpeg.exe"); }
-        if !de_exists { missing.push("deno.exe"); } // [2026-01-18 新增]
+        if !fp_exists { missing.push("ffprobe.exe"); }
+        if !de_exists { missing.push("deno.exe"); }
         let log_txt = get_msg(&lang, 
             &format!("⚠️ 核心組件不完整，缺失: {}", missing.join(", ")),
             &format!("⚠️ Core components incomplete, missing: {}", missing.join(", "))
@@ -174,149 +282,185 @@ fn check_core_components(window: tauri::Window, lang: String) -> Result<bool, St
     }
 }
 
-// [2026-01-18 修改] 修復程序新增 Deno 下載邏輯
+#[tauri::command]
+fn check_path_write_permission(path: String) -> bool {
+    let target_dir = std::path::Path::new(&path);
+    if !target_dir.exists() { return false; }
+    
+    let test_file = target_dir.join(".perm_test_r");
+    if let Ok(_) = std::fs::write(&test_file, "ok") {
+        let _ = std::fs::remove_file(test_file);
+        return true;
+    }
+    false
+}
+
 #[tauri::command]
 async fn download_components(window: tauri::Window, lang: String) -> Result<String, String> {
-    let mut lock = DOWNLOAD_LOCK.lock().await;
-    if *lock { return Err("BUSY".into()); }
-    *lock = true;
-
     let app_dir = get_app_dir();
     let yt_path = app_dir.join("yt-dlp.exe");
     let ff_path = app_dir.join("ffmpeg.exe");
-    let de_path = app_dir.join("deno.exe"); // [2026-01-18 新增]
+    let fp_path = app_dir.join("ffprobe.exe");
+    let de_path = app_dir.join("deno.exe");
 
-    let yt_missing = !yt_path.exists();
-    let ff_missing = !ff_path.exists();
-    let de_missing = !de_path.exists(); // [2026-01-18 新增]
+    let ff_missing = !ff_path.exists() || !fp_path.exists();
 
-    let msg_start = get_msg(&lang, "🚀 啟動修復程序：正在下載缺失組件...", "🚀 Starting repair: Downloading missing components...");
+    let msg_start = get_msg(&lang, "🚀 啟動程序：正在檢查並處理核心組件...", "🚀 Starting: Checking and processing core components...");
     let _ = window.emit("backend-log", msg_start);
 
-    // 下載 yt-dlp
-    if yt_missing {
-        let log_msg = get_msg(&lang, "⬇️ 正在獲取 yt-dlp.exe...", "⬇️ Downloading yt-dlp.exe...");
+    // 1. yt-dlp 更新/下載 (不論是否存在都強制抓最新)
+    {
+        let log_msg = get_msg(&lang, "⬇️ 正在獲取最新版 yt-dlp.exe...", "⬇️ Downloading latest yt-dlp.exe...");
         let _ = window.emit("backend-log", log_msg);
-        if let Err(e) = perform_download(&window, "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe", &yt_path, 0.0, 30.0).await {
-            *lock = false;
+        let yt_tmp_path = app_dir.join("yt-dlp.exe.tmp");
+        if let Err(e) = perform_download(&window, "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe", &yt_tmp_path, 0.0, 30.0).await {
+            let _ = std::fs::remove_file(&yt_tmp_path);
             return Err(e);
         }
+        if let Err(e) = std::fs::rename(&yt_tmp_path, &yt_path) {
+            let _ = std::fs::remove_file(&yt_tmp_path);
+            return Err(format!("無法覆蓋核心組件: {}", e));
+        }
+        let _ = window.emit("backend-log", get_msg(&lang, "✅ yt-dlp.exe 已就緒 (最新版)", "✅ yt-dlp.exe ready (Latest)"));
     }
 
-    // 下載 FFmpeg
+    // 2. FFmpeg 下載邏輯 (僅缺失時下載)
     if ff_missing {
-        let log_msg = get_msg(&lang, "⬇️ 正在獲取 ffmpeg.exe (此檔案較大)...", "⬇️ Downloading ffmpeg.exe (Large file)...");
+        let log_msg = get_msg(&lang, "⬇️ 正在獲取 FFmpeg 工具組 (此檔案較大)...", "⬇️ Downloading FFmpeg tools (Large file)...");
         let _ = window.emit("backend-log", log_msg);
-        
         let zip_path = app_dir.join("ffmpeg.zip");
         if let Err(e) = perform_download(&window, "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip", &zip_path, 30.0, 80.0).await {
-            *lock = false;
             return Err(e);
         }
-
-        let _ = window.emit("backend-log", get_msg(&lang, "📦 正在解壓並部署 FFmpeg...", "📦 Extracting and deploying FFmpeg..."));
+        let _ = window.emit("backend-log", get_msg(&lang, "📦 正在解壓並部署 FFmpeg 與 ffprobe...", "📦 Extracting FFmpeg and ffprobe..."));
         let mut cmd = Command::new("powershell");
         cmd.args(["-Command", &format!(
             "Expand-Archive -Path '{}' -DestinationPath './ff_tmp' -Force; \
              Move-Item './ff_tmp/*/bin/ffmpeg.exe' '{}' -Force; \
+             Move-Item './ff_tmp/*/bin/ffprobe.exe' '{}' -Force; \
              Remove-Item '{}'; Remove-Item './ff_tmp' -Recurse", 
-             zip_path.display(), ff_path.display(), zip_path.display())]);
-        
+             zip_path.display(), ff_path.display(), fp_path.display(), zip_path.display())]);
         #[cfg(target_os = "windows")]
         cmd.creation_flags(0x08000000); 
         let _ = cmd.output();
     }
 
-    // [2026-01-18 新增] 下載 Deno 引擎 (YouTube SABR 解碼必需)
-    if de_missing {
-        let log_msg = get_msg(&lang, "⬇️ 正在獲取解碼引擎 (Deno)...", "⬇️ Downloading Decode Engine (Deno)...");
+    // 3. Deno 更新/下載 (照 yt-dlp 的方式：只要執行修復就更新)
+    {
+        let log_msg = get_msg(&lang, "⬇️ 正在獲取最新版解碼引擎 (Deno)...", "⬇️ Downloading latest Decode Engine (Deno)...");
         let _ = window.emit("backend-log", log_msg);
-
         let de_zip_path = app_dir.join("deno.zip");
-        // 下載進度分配在 80% 到 95%
+        
         if let Err(e) = perform_download(&window, "https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-windows-msvc.zip", &de_zip_path, 80.0, 95.0).await {
-            *lock = false;
+            let _ = std::fs::remove_file(&de_zip_path);
             return Err(e);
         }
 
         let _ = window.emit("backend-log", get_msg(&lang, "📦 正在部署解碼引擎...", "📦 Deploying Decode Engine..."));
-        let mut cmd = Command::new("powershell");
         
-        // [修正邏輯] 使用更安全的路徑指定方式，確保 deno.exe 被解壓到正確的 app_dir
+        let mut cmd = Command::new("powershell");
         let dest_dir = app_dir.to_string_lossy();
         cmd.args(["-Command", &format!(
             "Expand-Archive -Path '{}' -DestinationPath '{}' -Force; \
              Remove-Item '{}' -Force", 
-             de_zip_path.display(), dest_dir, de_zip_path.display())]);
-        
+            de_zip_path.display(), dest_dir, de_zip_path.display())]);
+
         #[cfg(target_os = "windows")]
         cmd.creation_flags(0x08000000); 
-        let _ = cmd.output();
+        
+        let _ = cmd.output(); 
+        let _ = window.emit("backend-log", get_msg(&lang, "✅ Deno 引擎已就緒 (最新版)", "✅ Deno ready"));
     }
-    let is_ready = yt_path.exists() && ff_path.exists() && de_path.exists();
-    let _ = window.emit("core-status-update", is_ready);
-
-    *lock = false;
-
-    if is_ready {
+    
+    // ★ 修正變數定義：重新檢查所有檔案是否真的存在
+    let is_ok = yt_path.exists() && ff_path.exists() && fp_path.exists() && de_path.exists();
+    
+    if is_ok {
         let _ = window.emit("download-progress", DownloadPayload { progress: 100.0, speed: "Done".into(), eta: "00:00".into() });
         let _ = window.emit("backend-log", get_msg(&lang, "✅ 核心組件修復完成！", "✅ Core components repair completed!"));
+        let _ = window.emit("core-status-update", true); // 通知前端核心已 OK
         Ok("OK".into())
     } else {
         let _ = window.emit("download-progress", DownloadPayload { progress: 0.0, speed: "".into(), eta: "".into() });
-        let _ = window.emit("backend-log", get_msg(&lang, "❌ 修復失敗，請檢查網路。", "❌ Repair failed."));
+        let _ = window.emit("backend-log", get_msg(&lang, "❌ 修復失敗，請檢查網路或檔案權限。", "❌ Repair failed."));
         Err("Fail".into())
     }
 }
 
-// [2026-01-18 新增] 獲取本地 yt-dlp 版本號
 #[tauri::command]
 async fn get_local_yt_dlp_version() -> Result<String, String> {
     let app_dir = get_app_dir();
     let yt_exe = app_dir.join("yt-dlp.exe");
-
-    if !yt_exe.exists() {
-        return Ok("none".into());
-    }
-
+    if !yt_exe.exists() { return Ok("none".into()); }
     let mut cmd = Command::new(&yt_exe);
     cmd.args(["--version"]);
     #[cfg(target_os = "windows")]
     cmd.creation_flags(0x08000000);
-
     let output = cmd.output().map_err(|e| e.to_string())?;
-    let version = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    Ok(version)
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
 }
 
-// [2026-01-18 新增] 獲取遠端 GitHub 最新 yt-dlp 版本號 (方案 B)
 #[tauri::command]
 async fn check_remote_yt_dlp_version() -> Result<String, String> {
     let client = reqwest::Client::builder()
-        .user_agent("Tauri-Video-Downloader") // GitHub API 要求必須有 User-Agent
+        .user_agent("Tauri-Video-Downloader")
+        .timeout(std::time::Duration::from_secs(5))
         .build()
-        .map_err(|e: reqwest::Error| e.to_string())?;
+        .map_err(|e| e.to_string())?;
+    let resp = client.get("https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest").send().await.map_err(|e| e.to_string())?;
+    let json = resp.json::<serde_json::Value>().await.map_err(|e| e.to_string())?;
+    Ok(json["tag_name"].as_str().unwrap_or("").to_string())
+}
 
-    let resp = client.get("https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest")
+// [新增] 獲取本地 Deno 版本
+#[tauri::command]
+async fn get_local_deno_version() -> Result<String, String> {
+    let app_dir = get_app_dir();
+    let de_exe = app_dir.join("deno.exe");
+    if !de_exe.exists() { return Ok("none".into()); }
+    
+    let mut cmd = Command::new(&de_exe);
+    cmd.args(["--version"]);
+    #[cfg(target_os = "windows")]
+    cmd.creation_flags(0x08000000);
+    
+    let output = cmd.output().map_err(|e| e.to_string())?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    
+    // 修正：更嚴謹地只抓取 X.Y.Z 格式，並過濾所有空格
+    let re = Regex::new(r"deno\s+v?(\d+\.\d+\.\d+)").unwrap();
+    if let Some(caps) = re.captures(&stdout) {
+        Ok(caps[1].trim().to_string())
+    } else {
+        Ok("unknown".into())
+    }
+}
+
+// [新增] 檢查遠端 Deno 最新版本 (從 GitHub API)
+#[tauri::command]
+async fn check_remote_deno_version() -> Result<String, String> {
+    let client = reqwest::Client::builder()
+        .user_agent("Tauri-Video-Downloader")
+        .timeout(std::time::Duration::from_secs(5))
+        .build()
+        .map_err(|e| e.to_string())?;
+    
+    let resp = client.get("https://api.github.com/repos/denoland/deno/releases/latest")
         .send()
         .await
-        .map_err(|e: reqwest::Error| e.to_string())?;
-        
-    // [修正] 明確標註反序列化的類型為 serde_json::Value
-    let json = resp.json::<serde_json::Value>()
-        .await
-        .map_err(|e: reqwest::Error| e.to_string())?;
+        .map_err(|e| e.to_string())?;
     
-    // GitHub 的 tag_name 通常是日期格式，如 2025.01.15
-    let latest_version = json["tag_name"].as_str().unwrap_or("").to_string();
-    
-    Ok(latest_version)
+    let json = resp.json::<serde_json::Value>().await.map_err(|e| e.to_string())?;
+    // GitHub 的 tag 可能是 "v2.6.8"，我們把 'v' 去掉方便比對
+    let tag = json["tag_name"].as_str().unwrap_or("").replace('v', "");
+    Ok(tag)
 }
 
 #[tauri::command]
 async fn analyze_video(window: tauri::Window, url: String, lang: String) -> Result<VideoMetadata, String> {
     let app_dir = get_app_dir();
     let yt_exe = app_dir.join("yt-dlp.exe");
+    let de_exe = app_dir.join("deno.exe"); 
 
     if !yt_exe.exists() { 
         let _ = window.emit("core-status-update", false);
@@ -325,51 +469,49 @@ async fn analyze_video(window: tauri::Window, url: String, lang: String) -> Resu
     }
 
     let _ = window.emit("backend-log", get_msg(&lang, "🔍 正在解析影片...", "🔍 Analyzing..."));
-
     let mut cmd = Command::new(&yt_exe);
-    // [2026-01-18 修正] 加入 --no-config 確保穩定性
-    cmd.args(["--no-config", "--quiet", "--no-warnings", "--skip-download", "--dump-json", &url]);
+    if de_exe.exists() { cmd.env("YT_DLP_JS_INTERPRETER", "deno.exe"); }
+    cmd.args(["--no-config", "--no-playlist", "--quiet", "--no-warnings", "--skip-download", "--dump-json", &url]);
     #[cfg(target_os = "windows")]
     cmd.creation_flags(0x08000000); 
 
     let output = cmd.output().map_err(|e| e.to_string())?;
     let stdout = String::from_utf8_lossy(&output.stdout);
     if stdout.trim().is_empty() { return Err("Empty Output".into()); }
-
     let json: serde_json::Value = serde_json::from_str(&stdout).map_err(|e| e.to_string())?;
     
-    let mut video_formats = std::collections::HashMap::new();
-    let mut audio_formats = std::collections::HashMap::new();
+    let mut video_dict = std::collections::HashMap::new();
+    let mut audio_dict = std::collections::HashMap::new();
 
     if let Some(fmts) = json["formats"].as_array() {
         for f in fmts {
             let vcodec = f["vcodec"].as_str().unwrap_or("none");
             let acodec = f["acodec"].as_str().unwrap_or("none");
-
+            let filesize = f["filesize"].as_f64().or(f["filesize_approx"].as_f64()).unwrap_or(0.0);
             if vcodec != "none" {
-                let res = f["resolution"].as_str().or(f["format_note"].as_str()).unwrap_or("unknown");
-                video_formats.entry(res.to_string()).or_insert(f["format_id"].as_str().unwrap_or("").to_string());
+                let res = f["resolution"].as_str().or(f["format_note"].as_str()).unwrap_or("unknown").to_string();
+                let current_fs = video_dict.get(&res).map(|v: &(f64, String)| v.0).unwrap_or(0.0);
+                if !video_dict.contains_key(&res) || filesize > current_fs {
+                    video_dict.insert(res, (filesize, f["format_id"].as_str().unwrap_or("").to_string()));
+                }
             } else if acodec != "none" && vcodec == "none" {
                 let abr = f["abr"].as_f64().or(f["tbr"].as_f64()).unwrap_or(0.0);
                 let bitrate = format!("{}k", abr as i32);
-                audio_formats.entry(bitrate).or_insert(f["format_id"].as_str().unwrap_or("").to_string());
+                let current_fs = audio_dict.get(&bitrate).map(|v: &(f64, String)| v.0).unwrap_or(0.0);
+                if !audio_dict.contains_key(&bitrate) || filesize > current_fs {
+                    audio_dict.insert(bitrate, (filesize, f["format_id"].as_str().unwrap_or("").to_string()));
+                }
             }
         }
     }
 
-    let mut v_list: Vec<VideoFormat> = video_formats.into_iter()
-        .map(|(res, id)| VideoFormat { id, ext: "mp4".into(), resolution: res })
-        .collect();
-
+    let mut v_list: Vec<VideoFormat> = video_dict.into_iter().map(|(res, (_, id))| VideoFormat { id, ext: "mp4".into(), resolution: res }).collect();
     v_list.sort_by(|a, b| {
         let get_num = |s: &str| s.chars().filter(|c| c.is_digit(10)).collect::<String>().parse::<i32>().unwrap_or(0);
         get_num(&b.resolution).cmp(&get_num(&a.resolution))
     });
 
-    let mut a_list: Vec<VideoFormat> = audio_formats.into_iter()
-        .map(|(bit, id)| VideoFormat { id, ext: "mp3".into(), resolution: bit })
-        .collect();
-
+    let mut a_list: Vec<VideoFormat> = audio_dict.into_iter().map(|(bit, (_, id))| VideoFormat { id, ext: "mp3".into(), resolution: bit }).collect();
     a_list.sort_by(|a, b| {
         let get_num = |s: &str| s.chars().filter(|c| c.is_digit(10)).collect::<String>().parse::<i32>().unwrap_or(0);
         get_num(&b.resolution).cmp(&get_num(&a.resolution))
@@ -377,7 +519,6 @@ async fn analyze_video(window: tauri::Window, url: String, lang: String) -> Resu
 
     let mut final_formats = v_list;
     final_formats.extend(a_list);
-
     let _ = window.emit("backend-log", get_msg(&lang, "✅ 解析完成", "✅ Analysis complete"));
 
     Ok(VideoMetadata {
@@ -396,37 +537,41 @@ async fn download_video(
     path: String,
     lang: String, 
 ) -> Result<String, String> {
-    let mut lock = DOWNLOAD_LOCK.lock().await;
-    if *lock {
-        return Err(get_msg(&lang, "⚠️ 已有任務正在下載中", "⚠️ Task is already in progress"));
-    }
-    *lock = true;
-
-    // [2026-01-18 防呆修正] 檢查 quality 是否為空，避免因為前端 reset 導致的邏輯錯誤
+    ABORT_SIGNAL.store(false, Ordering::SeqCst);
     if quality.is_empty() {
-        *lock = false;
         return Err(get_msg(&lang, "❌ 錯誤：未選擇下載品質或格式", "❌ Error: Quality or format not selected"));
     }
 
     let app_dir = get_app_dir();
     let yt_exe = app_dir.join("yt-dlp.exe");
     let ff_exe = app_dir.join("ffmpeg.exe");
+    let de_exe = app_dir.join("deno.exe"); 
 
-    let _ = window.app_handle().emit("backend-log", get_msg(&lang, "⚙️ 準備下載...", "⚙️ Preparing..."));
+    if ABORT_SIGNAL.load(Ordering::SeqCst) { return Ok("CANCELLED".into()); }
+    let _ = window.app_handle().emit("backend-log", get_msg(&lang, "🌐 正在讀取 YouTube 頁面...", "🌐 Reading YouTube page..."));
 
     let mut info_cmd = Command::new(&yt_exe);
-    // [2026-01-18 修正] 加入 --no-config
-    info_cmd.args(["--no-config", "--quiet", "--skip-download", "--dump-json", &url]);
+    if de_exe.exists() { info_cmd.env("YT_DLP_JS_INTERPRETER", "deno.exe"); }
+    info_cmd.args(["--no-config", "--no-playlist", "--quiet", "--skip-download", "--dump-json", &url]);
     #[cfg(target_os = "windows")]
     info_cmd.creation_flags(0x08000000);
 
-    let info_output = info_cmd.output().map_err(|e| { *lock = false; e.to_string() })?;
-    let info_json: serde_json::Value = serde_json::from_str(&String::from_utf8_lossy(&info_output.stdout)).map_err(|e| { *lock = false; e.to_string() })?;
+    let info_output = info_cmd.output().map_err(|e| e.to_string())?;
+    if ABORT_SIGNAL.load(Ordering::SeqCst) { return Ok("CANCELLED".into()); }
+
+    let info_json: serde_json::Value = serde_json::from_str(&String::from_utf8_lossy(&info_output.stdout)).map_err(|e| e.to_string())?;
     let title = info_json["title"].as_str().unwrap_or("unknown");
-    
+    let video_id = info_json["id"].as_str().unwrap_or("unknown_id"); // [新增]
     let ext = if mode == "video" { "mp4" } else { "mp3" };
-    let final_path = get_unique_path(Path::new(&path), title, &quality, ext);
+    // [改進] 檔名加入 VideoID 以確保唯一性，防止不同影片同名導致的續傳錯誤
+    let final_filename = format!("{} [{}]", title, video_id);
+    let final_path = get_unique_path(Path::new(&path), &final_filename, &quality, ext);
     let final_path_str = final_path.to_string_lossy().to_string();
+
+    {
+        let mut path_lock = CURRENT_DOWNLOAD_PATH.lock().await;
+        *path_lock = Some(final_path.clone());
+    }
 
     let _ = window.app_handle().emit("backend-log", get_msg(&lang, "📥 開始下載...", "📥 Downloading..."));
 
@@ -436,14 +581,15 @@ async fn download_video(
         if quality == "bestaudio" { "bestaudio/best".to_string() } else { quality.clone() }
     };
 
-    // [修正邏輯錯誤 E0716] 將 to_string_lossy() 產生的暫時字串綁定到變數，以延長生命週期
-    let ff_path_lossy = ff_exe.to_string_lossy();
-    let ff_path_str = ff_path_lossy.as_ref();
+    let ff_path_str = ff_exe.to_string_lossy();
     let mut args = vec![
-        "--no-config", // [2026-01-18 修正] 加入 --no-config 確保調用 deno.exe
-        "--progress", "--newline",
-        "--ffmpeg-location", ff_path_str,
+        "--no-config", "--no-playlist", "--progress", "--newline",
+        "--ffmpeg-location", &ff_path_str,
         "-o", &final_path_str,
+        "--concurrent-fragments", "8",
+        "--fragment-retries", "3",
+        "--retries", "3",
+        "--resize-buffer", // [新增] 自動調整緩衝區，配合多線程
     ];
 
     if mode == "video" {
@@ -454,53 +600,63 @@ async fn download_video(
     args.push(&url);
 
     let mut child_cmd = Command::new(&yt_exe);
+    if de_exe.exists() { child_cmd.env("YT_DLP_JS_INTERPRETER", "deno.exe"); }
     child_cmd.args(args);
     child_cmd.stdout(Stdio::piped());
-    child_cmd.stderr(Stdio::piped());
+    child_cmd.stderr(Stdio::piped()); 
     #[cfg(target_os = "windows")]
     child_cmd.creation_flags(0x08000000);
 
-    let mut child = child_cmd.spawn().map_err(|e| { *lock = false; e.to_string() })?;
-    
-    // [2026-01-18 優化] 獨立獲取管道，避免緩衝區堵塞
+    let mut child = child_cmd.spawn().map_err(|e| e.to_string())?;
     let stdout = child.stdout.take().ok_or("No Stdout")?;
-    let stderr = child.stderr.take().ok_or("No Stderr")?;
     let reader = BufReader::new(stdout);
-    let mut error_reader = BufReader::new(stderr);
 
-    let re = Regex::new(r"\[download\]\s+(\d+\.?\d*)%\s+of\s+.*\s+at\s+(.*)\s+ETA\s+(.*)").unwrap();
+    {
+        let mut child_process_lock = CHILD_PROCESS.lock().await;
+        *child_process_lock = Some(child); 
+    } 
 
-    // [2026-01-18 修改] 強化日誌讀取：確保所有日誌都傳回前端，用於偵測轉檔狀態
+    let re = Regex::new(r"\[download\]\s+(\d+\.?\d*)%\s+.*at\s+(.*)\s+ETA\s+(.*)").unwrap();
+
+
+
     for line in reader.lines() {
+        if ABORT_SIGNAL.load(Ordering::SeqCst) { return Ok("CANCELLED".into()); }
         if let Ok(content) = line {
-            // 1. 進度正則判斷
+            
+            // ★ 修正點：擴充關鍵字匹配，並轉小寫處理增加相容性 ★
+            // 2. 【進度解析】
             if let Some(caps) = re.captures(&content) {
                 let progress = caps[1].parse::<f64>().unwrap_or(0.0);
                 let speed = caps[2].trim().to_string();
                 let eta = caps[3].trim().to_string();
-                // [2026-01-19 修正] 改用 app_handle().emit
-                let _ = window.app_handle().emit("download-progress", DownloadPayload { progress, speed, eta });
+                if !ABORT_SIGNAL.load(Ordering::SeqCst) {
+                    let _ = window.app_handle().emit("download-progress", DownloadPayload { progress, speed, eta });
+                }
+            } else {
+                // 3. 【其他訊息】
+                if !ABORT_SIGNAL.load(Ordering::SeqCst) {
+                    let _ = window.app_handle().emit("backend-log", content.clone());
+                }
             }
-            
-            // 2. 將原始日誌行廣播發送給所有視窗
-            let _ = window.app_handle().emit("backend-log", content.clone());
         }
     }
 
-    let result = child.wait().map_err(|e| { *lock = false; e.to_string() })?;
-    *lock = false; 
+    if ABORT_SIGNAL.load(Ordering::SeqCst) { return Ok("CANCELLED".into()); }
 
-    if result.success() {
-        let _ = window.app_handle().emit("backend-log", get_msg(&lang, "🎉 下載完成！", "🎉 Finished!"));
-        Ok("Success".to_string())
-    } else {
-        // [2026-01-18 優化] 失敗時才讀取具體原因
-        let mut err_msg = String::new();
-        let _ = error_reader.read_to_string(&mut err_msg);
-        if err_msg.is_empty() {
-            err_msg = "Download process failed. Possibly network or format issues.".into();
+    let mut child_guard = CHILD_PROCESS.lock().await;
+    if let Some(mut c) = child_guard.take() {
+        let result = c.wait();
+        if ABORT_SIGNAL.load(Ordering::SeqCst) { return Ok("CANCELLED".into()); }
+        match result {
+            Ok(status) if status.success() => {
+                let _ = window.app_handle().emit("backend-log", get_msg(&lang, "🎉 下載完成！", "🎉 Finished!"));
+                Ok("Success".to_string())
+            },
+            _ => Err("Download failed".into())
         }
-        Err(err_msg)
+    } else {
+        Ok("CANCELLED".into())
     }
 }
 
@@ -512,19 +668,21 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
-        .setup(|_app| {
-            // [2026-01-19 修正] 依照要求徹底移除 Mini 懸浮窗邏輯
-            // 以免刪除 mini.html 後程式因找不到視窗源檔案而報錯
-            Ok(())
-        })
-        .on_window_event(|window, event| {
-            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                let lock = DOWNLOAD_LOCK.try_lock();
-                if lock.is_err() || *lock.unwrap() == true {
-                    api.prevent_close();
-                    let _ = window.emit("close-requested-while-downloading", ());
+        .setup(|app| {
+            if let Some(window) = app.get_webview_window("main") {
+                // 初始狀態設為無邊框
+                let _ = window.set_decorations(false);
+                let _ = window.set_size(tauri::LogicalSize::new(940.0, 740.0));
+                
+                #[cfg(target_os = "windows")]
+                {
+                    // 啟動時立即消滅外框線
+                    let _ = window_vibrancy::clear_blur(&window);
                 }
+                
+                let _ = window.center();
             }
+            Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             analyze_video,
@@ -533,8 +691,15 @@ pub fn run() {
             download_components,
             get_local_yt_dlp_version,
             check_remote_yt_dlp_version,
+            get_local_deno_version,       
+            check_remote_deno_version,
             open_link,
-            exit_app
+            exit_app,
+            cancel_download,
+            pause_download,
+            resume_download, 
+            adjust_window_size,
+            check_path_write_permission 
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

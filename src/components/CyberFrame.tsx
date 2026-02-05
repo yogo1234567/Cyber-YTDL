@@ -2,42 +2,63 @@ import React from 'react';
 
 interface CyberFrameProps {
   borderColor: string;
-  // [2026-01-13] 新增 backgroundColor 屬性，用來接收 App.tsx 傳來的 theme.bg
   backgroundColor?: string; 
   children: React.ReactNode;
-  dragRegion?: boolean; 
+  dragRegion?: boolean;
+  className?: string; 
+  style?: React.CSSProperties; 
 }
 
 export const CyberFrame: React.FC<CyberFrameProps> = ({ 
   borderColor, 
-  backgroundColor = '#000', // 預設值給黑色，確保相容性
+  backgroundColor = '#000', 
   children, 
-  dragRegion = false 
+  dragRegion = true, 
+  className = "", 
+  style = {}      
 }) => {
   return (
     <div 
-      className="cyber-frame" 
+      className={`cyber-frame ${className}`} 
       data-tauri-drag-region={dragRegion ? "" : undefined} 
       style={{ 
-        border: `2px solid ${borderColor}`, 
-        // [修改] 增加底部 padding (50px)，讓主題切換按鈕不被圓角切到
-        padding: '10px 20px 20px 20px', 
-        // [重點修改] 將原本死板的 '#000' 改成接收動態的 backgroundColor
+        boxSizing: 'border-box',
+        // --- 核心修正：將縮寫 border 拆解為具體屬性 ---
+        borderWidth: '2px',
+        borderStyle: 'solid',
+        borderColor: borderColor, 
+        // ---------------------------------------
+        padding: '0', 
         background: backgroundColor, 
-        borderRadius: '35px',
-        boxShadow: `0 0 30px ${borderColor}33`,
-        minWidth: '780px',
+        borderRadius: '20px',
+        boxShadow: `
+          0 0 15px ${borderColor}cc,
+          0 0 35px ${borderColor}b3,
+          0 0 65px ${borderColor}22
+        `,
+        width: '100%',
+        height: '100%',
         position: 'relative',
         color: '#fff',
         pointerEvents: 'auto',
-        transition: 'background 0.5s ease, border-color 0.5s ease' // 讓變色過程滑順一點
+        overflow: style.overflow || 'hidden',
+        ...style 
       }}
     >
-      {/* 裝飾線條 */}
-      <div style={{ position: 'absolute', top: '10px', left: '40px', right: '40px', height: '1px', background: borderColor, opacity: 0.3 }} />
+      {/* 裝飾線 - 同樣確保 background 使用單一顏色值 */}
+      <div style={{ position: 'absolute', top: '10px', left: '40px', right: '40px', height: '1px', backgroundColor: borderColor, opacity: 0.3, pointerEvents: 'none', zIndex: 11 }} />
       
-      <div style={{ position: 'relative', zIndex: 10 }}>
-        {children}
+      {/* 內容層 */}
+      <div 
+        data-tauri-drag-region={dragRegion ? "" : undefined}
+        style={{ 
+          position: 'relative', 
+          zIndex: 10,
+          width: '100%',
+          height: '100%',         
+          boxSizing: 'border-box'
+        }}>
+        {children}      
       </div>
     </div>
   );

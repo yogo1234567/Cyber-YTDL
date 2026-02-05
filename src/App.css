@@ -12,22 +12,47 @@
   font-weight: 400;
 
   color: #0f0f0f;
-  background-color: #f6f6f6;
+  
+  /* [2026-01-24 修改] 邏輯修正：將背景色由 #f6f6f6 改為 transparent */
+  /* 原因：背景若不透明，WebView 會攔截滑鼠事件，導致 Tauri 視窗無法透過空白處拖曳 */
+  background-color: transparent;
+
+  /* [2026-01-24 新增] 邏輯修正：禁止全域文字選取 */
+  /* 原因：防止在拖曳視窗時意外選取到網頁文字，導致拖曳過程卡頓或出現系統右鍵選單 */
+  user-select: none;
+  -webkit-user-select: none;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  -moz-osx-osx-font-smoothing: grayscale;
   -webkit-text-size-adjust: 100%;
+}
+
+/* [2026-01-24 新增] 邏輯修正：確保輸入框依然可以選取文字，不影響操作 */
+input {
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .container {
   margin: 0;
-  padding-top: 10vh;
+  /* [2026-01-29 修改] 移除固定比例的上邊距，改為完全置中，避免縮放時比例偏移 */
+  /* padding-top: 10vh; */ 
+
+  /* [2026-01-29 新增] 確保內框始終撐滿 Rust 調整後的外框尺寸 */
+  width: 100vw;
+  height: 100vh;
+
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  
+  /* [2026-01-29 修改] 加上 align-items 並確保垂直水平皆置中 */
+  justify-content: center; 
+  align-items: center;     
+
   text-align: center;
+  gap: 10px;
 }
 
 .logo {
@@ -98,7 +123,8 @@ button {
 @media (prefers-color-scheme: dark) {
   :root {
     color: #f6f6f6;
-    background-color: #2f2f2f;
+    /* [2026-01-24 修改] 邏輯修正：深色模式下同樣保持背景透明 */
+    background-color: transparent;
   }
 
   a:hover {

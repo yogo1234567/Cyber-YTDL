@@ -26,11 +26,11 @@
 <table align="center">
   <tr>
     <td align="center">
-      <img src="https://github.com/user-attachments/assets/6ca44d20-f7de-419d-bcd2-efa2a0f02403" width="380px"/><br/>
+      <img src="https://github.com/user-attachments/assets/054d9173-a189-4096-9754-a2fe47cd157a"width="380px"/><br/>     
       <b>缺失核心下載畫面</b>
     </td>
     <td align="center">
-      <img src="https://github.com/user-attachments/assets/254dc8be-fd2d-4f3d-84cf-07cb12c1faba" width="380px"/><br/>
+      <img src="https://github.com/user-attachments/assets/27ab6cd6-4669-426d-8a12-66fa2e4771ef" width="380px"/><br/>
       <b>The core download interface is missing.</b>
     </td>
   </tr>

@@ -1,11 +1,65 @@
 # ⚡ Cyber-YTDL: 賽博Youtube影音下載器 (Cyber YouTube Downloader)
 
+![Version](https://img.shields.io/github/v/release/yogo1234567/Cyber-YTDL?color=purple)
+![Downloads](https://img.shields.io/github/downloads/yogo1234567/Cyber-YTDL/total?color=blue)
 ![License](https://img.shields.io/github/license/yogo1234567/Cyber-YTDL?style=for-the-badge)
 ![Tauri Version](https://img.shields.io/badge/Tauri-v2-FFC107?style=for-the-badge&logo=tauri)
 ![Visual Style](https://img.shields.io/badge/Style-Cyberpunk-00ff9f?style=for-the-badge)
 ![AI-Powered](https://img.shields.io/badge/Developed_with-Gemini_AI-blue?style=for-the-badge&logo=google-gemini)
 
 ---
+程式畫面 / Program interface:
+
+<table align="center">
+  <tr>
+    <td align="center">
+      <img src="https://github.com/user-attachments/assets/e56e66d8-7304-4b84-b06b-35f2876ab3b6" width="380px"/><br/>
+      <b>中文主下載介面
+    </td>
+    <td align="center">
+      <img src="https://github.com/user-attachments/assets/d778910e-e9f8-4b0c-896c-6877820a8dca" width="380px"/><br/>
+      <b>English main UI
+    </td>
+  </tr>
+</table>
+
+<table align="center">
+  <tr>
+    <td align="center">
+      <img src="https://github.com/user-attachments/assets/6ca44d20-f7de-419d-bcd2-efa2a0f02403" width="380px"/><br/>
+      <b>缺失核心下載畫面</b>
+    </td>
+    <td align="center">
+      <img src="https://github.com/user-attachments/assets/254dc8be-fd2d-4f3d-84cf-07cb12c1faba" width="380px"/><br/>
+      <b>The core download interface is missing.</b>
+    </td>
+  </tr>
+</table>
+
+<table align="center">
+  <tr>
+    <td align="center">
+      <img src="https://github.com/user-attachments/assets/692b13d9-f060-44a1-9d60-3c7ba812c62b" width="380px"/><br/>
+      <b>功能 / Feature </b>
+    </td>
+    <td align="center">
+      <img src="https://github.com/user-attachments/assets/298c06b7-fef8-49ac-a5a2-c1305a4e0847" width="380px"/><br/>
+      <b>功能 / Feature </b>
+    </td>
+  </tr>
+</table>
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/b913b204-02c6-4b2e-9090-ed854d5317a9" width="800" alt="Main Demo">
+  <br>
+  <b>監控展示 / Monitor Demo</b>
+</p>
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/9e45ed0c-198e-449b-aacd-08afa4e039d0" width="600" alt="Cyber-YTDL Preview">
+  <br>
+  <em>Cyber-YTDL 介面預覽 / Interface Preview</em>
+</p>
 
 ## 📖 Cyber-YTDL 使用指南 (全功能解析) / User Guide
 
@@ -46,7 +100,6 @@
   *(Manual path selection is also supported! 🦾)*
 
 ---
-
 ## 🦾 開發者的真心話 / Developer's Monologue
 
 **我自己不是程式設計者，完全是把我的想法告訴Gemini AI，雖然它時常會鬼打牆(自己刪減代碼，瘋狂找沒錯的地方說有錯@@)，搞得我快瘋了，但畢竟我整個程式介面UI代碼都是靠著Gemini AI做出的，下面就讓它吹噓一下它自己吧!!! 哈哈哈哈哈 希望這程式大家用的喜歡**

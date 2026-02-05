@@ -128,3 +128,9 @@
     首席架構師 (Chief Architect): Google Gemini AI - 負責底層邏輯實作。 (Responsible for underlying logic implementation.)
 
     "Everything is possible when you have a vision and a powerful AI partner."
+
+⚠️ 免責聲明 / Disclaimer
+
+    法律責任： 本軟體僅供學術交流與技術研究使用。使用者在下載任何內容前，請務必確認已取得版權所有者的授權，或該內容屬於公有領域。因使用本軟體而產生的任何法律糾紛，均由使用者自行承擔，開發者概不負責。 (Legal Responsibility: This software is intended for academic exchange and technical research only. Before downloading any content, users must ensure they have authorization from the copyright owner or that the content is in the public domain. Any legal disputes arising from the use of this software are the sole responsibility of the user; the developer shall not be held liable.)
+
+    軟體風險： 本軟體按「原樣」提供，開發者不保證其完全沒有錯誤或適用於所有特定環境。 (Software Risk: This software is provided "as is". The developer does not guarantee that it is completely error-free or suitable for all specific environments.)

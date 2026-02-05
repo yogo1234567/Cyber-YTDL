@@ -43,8 +43,8 @@
       <b>介面模式功能介紹 / Function Introduction </b>
     </td>
     <td align="center">
-      <img src="https://github.com/user-attachments/assets/298c06b7-fef8-49ac-a5a2-c1305a4e0847" width="380px"/><br/>
-      <b>功能 / Feature </b>
+      <img src="https://github.com/user-attachments/assets/befc408d-b1d9-4a33-b579-385e21b2d248" width="380px"/><br/>
+      <b>使用說明 / use </b>
     </td>
   </tr>
 </table>

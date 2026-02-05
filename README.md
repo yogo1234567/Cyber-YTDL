@@ -13,11 +13,11 @@
 <table align="center">
   <tr>
     <td align="center">
-      <img src="https://github.com/user-attachments/assets/e56e66d8-7304-4b84-b06b-35f2876ab3b6" width="380px"/><br/>
+      <img src="https://github.com/user-attachments/assets/20ae2391-2565-4f7b-bbcb-bf541605ad9c" width="380px"/><br/> 
       <b>中文主下載介面
     </td>
     <td align="center">
-      <img src="https://github.com/user-attachments/assets/d778910e-e9f8-4b0c-896c-6877820a8dca" width="380px"/><br/>
+      <img src="https://github.com/user-attachments/assets/6a344769-3862-4fb9-9fc3-091a73475b9e" width="380px"/><br/>
       <b>English main UI
     </td>
   </tr>

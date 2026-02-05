@@ -39,8 +39,8 @@
 <table align="center">
   <tr>
     <td align="center">
-      <img src="https://github.com/user-attachments/assets/692b13d9-f060-44a1-9d60-3c7ba812c62b" width="380px"/><br/>
-      <b>功能 / Feature </b>
+      <img src="https://github.com/user-attachments/assets/b11d9552-dab3-41f6-af14-5653edf78cf1" width="380px"/><br/>
+      <b>介面模式功能介紹 / Function Introduction </b>
     </td>
     <td align="center">
       <img src="https://github.com/user-attachments/assets/298c06b7-fef8-49ac-a5a2-c1305a4e0847" width="380px"/><br/>
